@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1,user-scalable=no"/>
+    <title>OpenStreetView!</title>
+    <link rel="stylesheet" href="https://js.arcgis.com/3.17/esri/css/esri.css">
+    <style>
+      html, body, #map {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+    <script src="https://js.arcgis.com/3.17/"></script>
+	<script src="./jquery-3.1.0.min.js"></script>
+	<script src="./jquery.slides.min.js"></script>
+	<style>
+    body {
+      -webkit-font-smoothing: antialiased;
+      font: normal 15px/1.5 "Helvetica Neue", Helvetica, Arial, sans-serif;
+      color: #232525;
+    }
+
+    #slides {
+      display: none
+    }
+
+    #slides .slidesjs-navigation {
+      margin-top:3px;
+    }
+
+    #slides .slidesjs-previous {
+      margin-right: 5px;
+      float: left;
+    }
+
+    #slides .slidesjs-next {
+      margin-right: 5px;
+      float: left;
+    }
+
+    .slidesjs-pagination {
+      margin: 6px 0 0;
+      float: right;
+      list-style: none;
+    }
+
+    .slidesjs-pagination li {
+      float: left;
+      margin: 0 1px;
+    }
+
+    .slidesjs-pagination li a {
+      display: block;
+      width: 13px;
+      height: 0;
+      padding-top: 13px;
+      float: left;
+      overflow: hidden;
+    }
+
+    .slidesjs-pagination li a.active,
+    .slidesjs-pagination li a:hover.active {
+      background-position: 0 -13px
+    }
+
+    .slidesjs-pagination li a:hover {
+      background-position: 0 -26px
+    }
+
+    #slides a:link,
+    #slides a:visited {
+      color: #333
+    }
+
+    #slides a:hover,
+    #slides a:active {
+      color: #9e2020
+    }
+
+    .navbar {
+      overflow: hidden
+    }
+  </style>
+  <!-- End SlidesJS Optional-->
+    <script>
+      var map;
+
+      require([
+		"esri/map", 
+		"esri/geometry/webMercatorUtils", 
+		"esri/dijit/Popup",
+		"dojo/request/xhr", 
+		"dojo/dom-construct",
+		"dojo/domReady!"], 
+		function(Map, webMercatorUtils, Popup, xhr, domConstruct) {
+		
+		var popup = new Popup({}, domConstruct.create("div"));
+		popup.setTitle("OpenStreetView!");
+		popup.startup();
+	
+        map = new Map("map", {
+          basemap: "osm", 
+          center: [-122.45, 37.75],
+          zoom: 12,
+		  infoWindow: popup
+        });
+		
+		map.on("click", function(evt){
+		
+			var mapPointLngLat = webMercatorUtils.xyToLngLat(evt.mapPoint.x, evt.mapPoint.y);
+
+			xhr.post("http://localhost/proxy/proxy.ashx?http://openstreetview.org/nearby-tracks", {
+				data: {
+					lat: mapPointLngLat[1],
+					lng: mapPointLngLat[0],
+					distance: 0.5
+				},
+				headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8", "Accept": "*/*" }, //text/plain
+
+			}).then(function(json){
+				
+				var response = JSON.parse(json);
+				if(response.osv.sequences.length == 0){return;}
+				
+				var show = domConstruct.create("div");
+				show.setAttribute("id", "slides");
+				for (var i = 0; i < response.osv.sequences.length; i++) {
+				
+					var photo = "http://openstreetview.org/" + response.osv.sequences[i].photo;
+					var elem = domConstruct.create("img", null, show); 
+					elem.setAttribute("src", photo);
+					elem.setAttribute("title", response.osv.sequences[i].address + " - " + response.osv.sequences[i].date);
+				}
+				
+				map.infoWindow.setContent(show);
+				map.infoWindow.show(evt.mapPoint);
+				$("#slides").slidesjs();
+
+			});
+		});
+    });
+	  
+    </script>
+  </head>
+
+  <body>
+    <div id="map"></div>
+  </body>
+</html>
